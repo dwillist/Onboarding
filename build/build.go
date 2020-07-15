@@ -38,9 +38,9 @@ type BuildPlanTOMLStruct struct {
 }
 
 type LayerTOMLStruct struct {
-	Launch string `toml:"launch"`
-	Build  string `toml:"build"`
-	Cache  string `toml:"cache"`
+	Launch bool `toml:"launch"`
+	Build  bool `toml:"build"`
+	Cache  bool `toml:"cache"`
 	// Also metadata fields that we are going to ignore for now
 }
 
@@ -86,9 +86,9 @@ func (b Builder) BuildFunction(buildpackTOMLPath, layersDir, platformDir, planPa
 
 	// we are not going to worry too much about the flags here those will come up in subsequent examples
 	nodeLayerTOMLContents := LayerTOMLStruct{
-		Launch: "true",
-		Build:  "true",
-		Cache:  "true",
+		Launch: true,
+		Build:  true,
+		Cache:  true,
 	}
 
 	err = toml.NewEncoder(nodeLayerFile).Encode(nodeLayerTOMLContents)

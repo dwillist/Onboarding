@@ -3,6 +3,7 @@ api = "0.2"
 [buildpack]
   id = "paketo-onboarding/node-engine"
   name = "Onboarding Node Engine Buildpack"
+  version = "0.0.1"
 
 [metadata]
   [[metadata.dependencies]]
