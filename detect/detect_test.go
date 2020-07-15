@@ -11,6 +11,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+///
+/// NOTES
+///
+///
+
 func TestDetect(t *testing.T) {
 	spec.Run(t, "TestDetect", func(t *testing.T, when spec.G, it spec.S) {
 		var (
@@ -24,9 +29,14 @@ func TestDetect(t *testing.T) {
 				appPath      string
 				detector     Detector
 			)
+
+			// Initializing some test directories and files that are needed by the
+			// DetectFunction call
+
 			it.Before(func() {
 				baseDir, err := ioutil.TempDir("", "testDir")
 				Expect(err).NotTo(HaveOccurred())
+
 				planPath = filepath.Join(baseDir, "plan.toml")
 
 				platformPath = filepath.Join(baseDir, "platform")
@@ -38,6 +48,7 @@ func TestDetect(t *testing.T) {
 				detector = NewDetector()
 			})
 
+			//
 			when("when application has no package.json", func() {
 				it("fails detection", func() {
 					exitStatus, err := detector.DetectFunction(platformPath, planPath, appPath)
