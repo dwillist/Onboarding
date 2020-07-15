@@ -22,6 +22,7 @@ func TestDetect(t *testing.T) {
 				platformPath string
 				planPath     string
 				appPath      string
+				detector     Detector
 			)
 			it.Before(func() {
 				baseDir, err := ioutil.TempDir("", "testDir")
@@ -33,11 +34,13 @@ func TestDetect(t *testing.T) {
 
 				appPath = filepath.Join(baseDir, "application")
 				Expect(os.MkdirAll(appPath, os.ModePerm)).To(Succeed())
+
+				detector = NewDetector()
 			})
 
 			when("when application has no package.json", func() {
 				it("fails detection", func() {
-					exitStatus, err := DetectionFunction(platformPath, planPath, appPath)
+					exitStatus, err := detector.DetectFunction(platformPath, planPath, appPath)
 					Expect(exitStatus).To(Equal(100))
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -49,7 +52,7 @@ func TestDetect(t *testing.T) {
 					Expect(err).NotTo(HaveOccurred())
 				})
 				it("passes detection", func() {
-					exitStatus, err := DetectionFunction(platformPath, planPath, appPath)
+					exitStatus, err := detector.DetectFunction(platformPath, planPath, appPath)
 					Expect(exitStatus).To(Equal(0))
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -61,7 +64,7 @@ func TestDetect(t *testing.T) {
 					Expect(err).NotTo(HaveOccurred())
 				})
 				it("fails detection", func() {
-					exitStatus, err := DetectionFunction(platformPath, planPath, appPath)
+					exitStatus, err := detector.DetectFunction(platformPath, planPath, appPath)
 					Expect(exitStatus).To(Equal(100))
 					Expect(err).NotTo(HaveOccurred())
 				})

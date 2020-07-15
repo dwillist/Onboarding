@@ -17,7 +17,14 @@ const AppName string = "onboarding_app"
 //     during it's build phase
 //   appPath: path to the root of our application
 //
-func DetectionFunction(platformVarsPath, planPath, appPath string) (int, error) {
+
+type Detector struct{}
+
+func NewDetector() Detector {
+	return Detector{}
+}
+
+func (d Detector) DetectFunction(platformVarsPath, planPath, appPath string) (int, error) {
 	var packageJSON struct {
 		Name string `json:"name"`
 	}
