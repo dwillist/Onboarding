@@ -64,7 +64,7 @@ func TestBuild(t *testing.T) {
 					),
 				)
 
-				// initalize the builder that we are going to use to test the BuildFunction method
+				// initialize the builder that we are going to use to test the BuildFunction method
 				builder = NewBuilder(server.Client())
 
 				// write a buildpack.toml at the 'root' of our fake buildpack
@@ -102,12 +102,15 @@ func TestBuild(t *testing.T) {
 				// used to pass info from detect to build
 				// un-used in solution
 				planPath = filepath.Join(baseDir, "plan.toml")
-
+				Expect(ioutil.WriteFile(planPath, []byte(`
+[[entries]]
+  name = "node"
+  version = "14.x"
+				`), os.ModePerm)).To(Succeed())
 				// Path to application,
 				// again unused in the solution implementation
 				appPath = filepath.Join(baseDir, "app-dir")
 				Expect(os.MkdirAll(appPath, os.ModePerm)).To(Succeed())
-
 			})
 
 			when("Fresh Build", func() {
@@ -168,6 +171,22 @@ cache = false
 				})
 			})
 
+			when("failure cases", func() {
+				when("the Buildplan 'node' entry's version constrain doesn't match the version in buildpack.toml", func() {
+					it.Before(func() {
+						Expect(ioutil.WriteFile(planPath, []byte(`
+[[entries]]
+	name = "node"
+	version = "10.0.x"
+					`), os.ModePerm)).To(Succeed())
+					})
+					it("fails to build", func() {
+						returnVal, err := builder.BuildFunction(buildpackTOMLPath, layersPath, platformPath, planPath, appPath)
+						Expect(err).To(MatchError(ContainSubstring("no match for version constraint in buildpack.toml")))
+						Expect(returnVal).To(Equal(100))
+					})
+				})
+			})
 		})
 	})
 }

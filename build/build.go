@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
+	"github.com/blang/semver"
 )
 
 // golang struct deffinition of buildpack.toml
@@ -26,12 +27,21 @@ type BuildpackTOMLStruct struct {
 	} `toml:"buildpack"`
 	Metadata struct {
 		Dependencies []struct {
-			ID     string   `toml:"id"`
-			SHA256 string   `toml:sha256"`
-			Stacks []string `toml:"stacks"`
-			URI    string   `toml:"uri"`
+			ID      string   `toml:"id"`
+			SHA256  string   `toml:sha256"`
+			Stacks  []string `toml:"stacks"`
+			URI     string   `toml:"uri"`
+			Version string   `toml:"version"`
 		} `toml:"dependencies"`
 	} `toml:"metadata"`
+}
+
+type BuildPlanTOMLStruct struct {
+	Entries []struct {
+		Name    string `toml:"name"`
+		Version string `toml:"version"`
+	} `toml:"entries"`
+	// Also metadata fields that we are going to ignore for now
 }
 
 // golang struct deffinition of the <layer>.toml struct
@@ -62,7 +72,10 @@ func (b Builder) BuildFunction(buildpackTOMLPath, layersDir, platformDir, planPa
 	nodeLayerPath := filepath.Join(layersDir, "node")
 	nodeLayerTOML := filepath.Join(layersDir, "node.toml")
 
-	var buildpackTOMLStruct BuildpackTOMLStruct
+	var (
+		buildpackTOMLStruct BuildpackTOMLStruct
+		buildPlanTOMLStruct BuildPlanTOMLStruct
+	)
 
 	//
 	// Decode the contents of the buildpack.toml file,
@@ -71,16 +84,16 @@ func (b Builder) BuildFunction(buildpackTOMLPath, layersDir, platformDir, planPa
 	fmt.Println("--- Decoding buildpack.toml file")
 	buildpackTOMLContents, err := ioutil.ReadFile(buildpackTOMLPath)
 	if err != nil {
-		return -1, fmt.Errorf("unable to read buildpack.toml file: %s", err)
+		return 100, fmt.Errorf("unable to read buildpack.toml file: %s", err)
 	}
 
 	//
 	// Decode the the buildpack.toml file into the BuildpackTOMLStruct
-	// defined above usint the toml library
+	// defined above using the toml library
 	//
 	_, err = toml.Decode(string(buildpackTOMLContents), &buildpackTOMLStruct)
 	if err != nil {
-		return -1, fmt.Errorf("unable to decode buildpack.toml file: %s", err)
+		return 100, fmt.Errorf("unable to decode buildpack.toml file: %s", err)
 	}
 
 	//
@@ -88,7 +101,30 @@ func (b Builder) BuildFunction(buildpackTOMLPath, layersDir, platformDir, planPa
 	// there is only one value
 	//
 	if len(buildpackTOMLStruct.Metadata.Dependencies) != 1 {
-		return -1, fmt.Errorf("unexpected number of dependencies for our fake buildpack")
+		return 100, fmt.Errorf("unexpected number of dependencies for our fake buildpack")
+	}
+
+	buildPlanContents, err := ioutil.ReadFile(planPath)
+	if err != nil {
+		return 100, fmt.Errorf("failed to read the BuildPlan toml file: %s", err)
+	}
+
+	_, err = toml.Decode(string(buildPlanContents), &buildPlanTOMLStruct)
+	if err != nil {
+		return 100, fmt.Errorf("failed to decode the BuildPlan toml file: %s", err)
+	}
+
+	//
+	// Check to match the version given by the buildplan
+	// with the actual dependency version that is in our buildpack.toml
+	// to make sure that they agree
+	//
+	match, err := semverMatch(buildPlanTOMLStruct, buildpackTOMLStruct.Metadata.Dependencies[0].Version)
+	if err != nil {
+		return 100, fmt.Errorf("error matching buildplan and buildpack.toml 'node' versions: %s", err)
+	}
+	if !match {
+		return 100, errors.New("no match for version constraint in buildpack.toml")
 	}
 
 	//
@@ -98,7 +134,7 @@ func (b Builder) BuildFunction(buildpackTOMLPath, layersDir, platformDir, planPa
 	fmt.Println("--- Downloading node dependnecy")
 	err = b.downloadHelper(buildpackTOMLStruct.Metadata.Dependencies[0].URI, nodeLayerPath)
 	if err != nil {
-		return -1, fmt.Errorf("unable to download node artifact: %s", err)
+		return 100, fmt.Errorf("unable to download node artifact: %s", err)
 	}
 
 	//
@@ -108,7 +144,7 @@ func (b Builder) BuildFunction(buildpackTOMLPath, layersDir, platformDir, planPa
 	fmt.Println("--- Writing node.toml file")
 	nodeLayerFile, err := os.OpenFile(nodeLayerTOML, os.O_CREATE|os.O_TRUNC|os.O_RDWR, os.ModePerm)
 	if err != nil {
-		return -1, fmt.Errorf("unable to open node.toml file for writing: %s", err)
+		return 100, fmt.Errorf("unable to open node.toml file for writing: %s", err)
 	}
 	defer nodeLayerFile.Close()
 
@@ -126,7 +162,7 @@ func (b Builder) BuildFunction(buildpackTOMLPath, layersDir, platformDir, planPa
 	//
 	err = toml.NewEncoder(nodeLayerFile).Encode(nodeLayerTOMLContents)
 	if err != nil {
-		return -1, errors.New("unabel to write node_layer.toml contents")
+		return 100, errors.New("unabel to write node_layer.toml contents")
 	}
 
 	//
@@ -134,6 +170,39 @@ func (b Builder) BuildFunction(buildpackTOMLPath, layersDir, platformDir, planPa
 	//
 	fmt.Println("--- Success!")
 	return 0, nil
+}
+
+func semverMatch(buildPlan BuildPlanTOMLStruct, buildpackTOMLVersion string) (bool, error) {
+	var (
+		versionConstraint semver.Range
+		err               error
+	)
+
+	foundConstraint := false
+	for _, entry := range buildPlan.Entries {
+		if entry.Name == "node" {
+			foundConstraint = true
+			versionConstraint, err = semver.ParseRange(entry.Version)
+			if err != nil {
+				return false, fmt.Errorf("invalid version from BuildPlan: %s", err)
+			}
+		}
+	}
+
+	if !foundConstraint {
+		return false, errors.New("Unable to find proper version constraint")
+	}
+
+	buildpackDependencyVersion, err := semver.Parse(buildpackTOMLVersion)
+	if err != nil {
+		return false, fmt.Errorf(
+			"unable to parse buildpack.toml version %s: %s",
+			buildpackTOMLVersion,
+			err,
+		)
+	}
+
+	return versionConstraint(buildpackDependencyVersion), nil
 }
 
 // downloads & unzips to a destination (we know we are useing .tar files here)
