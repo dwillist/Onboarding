@@ -171,6 +171,9 @@ cache = false
 				})
 			})
 
+			// the version constraint for 'node' that is specified in our package.json file, is not
+			// satisfied by the version our buildpack can provide,
+			// so we fail
 			when("failure cases", func() {
 				when("the Buildplan 'node' entry's version constrain doesn't match the version in buildpack.toml", func() {
 					it.Before(func() {

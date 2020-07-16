@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -34,17 +33,19 @@ func TestDetect(t *testing.T) {
 				Expect(err).NotTo(HaveOccurred())
 
 				// path to the Build Plan file, this file is used to
-				// specify what this buildpack will be providing, so that subsequent
+				// specify what this buildpack will be providing as well as requiring, so that subsequent
 				// buildpacks know if they can be used,
 				// Ex:
 				// in order to run 'npm install', we need 'node' & 'npm'
-				// available
+				// binaries each of which could be provided by other buildpacks, or the current one.
 				//
 				// Specification for what this file looks like here:
 				// https://github.com/buildpacks/spec/blob/main/buildpack.md#build-plan-toml
 				planPath = filepath.Join(baseDir, "plan.toml")
 
 				// unused in the solution, but required input to build
+				// would contain info such as env-vars provided to pack,
+				// as well as other pack configuration data.
 				platformPath = filepath.Join(baseDir, "platform")
 				Expect(os.MkdirAll(platformPath, os.ModePerm)).To(Succeed())
 
@@ -70,6 +71,11 @@ func TestDetect(t *testing.T) {
 				})
 			})
 
+			// When our application does meet the detection criteria our function should return
+			// the integer 0 (will be used as program exit status)
+			// and write to the BuildPlan it's provides & requirements.
+			//
+			// For a refresher on the BuildPlan see the Readme's Buildplan section
 			when(`when application has "name": "onboarding_app" in package.json`, func() {
 				it.Before(func() {
 					err := ioutil.WriteFile(filepath.Join(appPath, "package.json"), []byte(`
@@ -87,7 +93,6 @@ func TestDetect(t *testing.T) {
 
 					contents, err := ioutil.ReadFile(planPath)
 					Expect(err).NotTo(HaveOccurred())
-					fmt.Println(string(contents))
 					Expect(string(contents)).To(Equal(`[[provides]]
   name = "node"
 
@@ -98,6 +103,8 @@ func TestDetect(t *testing.T) {
 				})
 			})
 
+			// Again we don't want to detect on just any app, we want a specific name
+			// so this should fail with the familiar, 100 exit status
 			when(`when application has other "name" in  package.json`, func() {
 				it.Before(func() {
 					err := ioutil.WriteFile(filepath.Join(appPath, "package.json"), []byte(`{"name": "blerb"}`), os.ModePerm)

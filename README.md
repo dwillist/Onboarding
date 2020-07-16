@@ -58,3 +58,15 @@ Awesome job completing Task K!
 by running `docker kill <container-id>`
 
 
+
+
+
+NOTES: 
+More on Provides & Requirements
+In order for detection to pass the Provides & Requirements must 'match'
+So every 'name = "<dep_name>"', entry under the [[provides]] section of the 
+BuildPlan must have a equivalent 'name = "<dep_name"' under the [[requires]]
+
+These matches need not all be included in the same buildpack, so for example
+if we have BuildpackA, and BuildpackB
+then we could have the following provides & require
