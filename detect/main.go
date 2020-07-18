@@ -10,7 +10,6 @@ func main() {
 	if len(os.Args) != 3 {
 		errorString := fmt.Sprint("Expected 3 args: instead got", strings.Join(os.Args, "\n"))
 		panic(errorString)
-		//panic("Expected 4 args!")
 	}
 	// os.Args[0] is just name of program
 	detector := NewDetector()
