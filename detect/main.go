@@ -8,7 +8,7 @@ import (
 
 func main() {
 	if len(os.Args) != 3 {
-		errorString := fmt.Sprint("Expected 4 args: instead got", strings.Join(os.Args, "\n"))
+		errorString := fmt.Sprint("Expected 3 args: instead got", strings.Join(os.Args, "\n"))
 		panic(errorString)
 		//panic("Expected 4 args!")
 	}
