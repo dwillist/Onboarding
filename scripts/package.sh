@@ -1,37 +1,92 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 set -e
 set -u
-set x
 set -o pipefail
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+readonly ROOT_DIR="$(cd "$(dirname "${0}")/.." && pwd)"
+readonly BIN_DIR="${ROOT_DIR}/.bin"
+readonly BUILD_DIR="${ROOT_DIR}/build"
 
-BUILDPACK_ROOT=$DIR/..
+# shellcheck source=.util/tools.sh
+source "${ROOT_DIR}/scripts/.util/tools.sh"
 
-WORK_DIR="$(mktemp -d)"
-
+# shellcheck source=.util/print.sh
+source "${ROOT_DIR}/scripts/.util/print.sh"
 
 function main {
-  cp "$BUILDPACK_ROOT/buildpack.toml" "$WORK_DIR"
-  mkdir "$WORK_DIR/bin"
+  local version
 
-  pushd $BUILDPACK_ROOT/detect
-    GOOS=linux go build -o "$WORK_DIR/bin/detect" .
-  popd
+  while [[ "${#}" != 0 ]]; do
+    case "${1}" in
+      --version|-v)
+        version="${2}"
+        shift 2
+        ;;
 
-  pushd $BUILDPACK_ROOT/build
-    GOOS=linux go build -o "$WORK_DIR/bin/build" .
-  popd
+      "")
+        # skip if the argument is empty
+        shift 1
+        ;;
 
-  pushd "$WORK_DIR"
-    tar -czvf "$BUILDPACK_ROOT/buildpack.tgz" .
-  popd
+      *)
+        util::print::error "unknown argument \"${1}\""
+    esac
+  done
+
+  if [[ "${version:-}" == "" ]]; then
+    util::print::error "--version is required"
+  fi
+
+  repo::prepare
+  buildpack::archive "${version}"
+  buildpackage::create
 }
 
-function cleanup {
-    echo "cleaning up $WORK_DIR"
-    rm -r "$WORK_DIR"
+function repo::prepare() {
+  util::print::title "Preparing repo..."
+
+  rm -rf "${BUILD_DIR}"
+
+  mkdir -p "${BIN_DIR}"
+  mkdir -p "${BUILD_DIR}"
+
+  export PATH="${BIN_DIR}:${PATH}"
 }
 
-main
+function buildpack::archive() {
+  local version
+  version="${1}"
+
+  util::print::title "Packaging buildpack into ${BUILD_DIR}/buildpack.tgz..."
+
+  if [[ -f "${ROOT_DIR}/.packit" ]]; then
+    util::tools::jam::install --directory "${BIN_DIR}"
+
+    jam pack \
+      --buildpack "${ROOT_DIR}/buildpack.toml" \
+      --version "${version}" \
+      --output "${BUILD_DIR}/buildpack.tgz"
+  else
+    util::tools::packager::install --directory "${BIN_DIR}"
+
+    packager \
+      --uncached \
+      --archive \
+      --version "${version}" \
+      "${BUILD_DIR}/buildpack"
+  fi
+}
+
+function buildpackage::create() {
+  util::print::title "Packaging buildpack..."
+
+  util::tools::pack::install --directory "${BIN_DIR}"
+
+  pack \
+    package-buildpack "${BUILD_DIR}/buildpackage.cnb" \
+      --package-config "${ROOT_DIR}/package.toml" \
+      --format file
+}
+
+main "${@:-}"

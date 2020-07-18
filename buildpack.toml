@@ -1,17 +1,23 @@
 api = "0.2"
 
 [buildpack]
-  id = "paketo-onboarding/node-engine"
-  name = "Onboarding Node Engine Buildpack"
-  version = "0.0.1"
+  id = "onboarding/packit_buildpack"
+  name = "Onboarding Packit Buildpack"
 
 [metadata]
+  include_files = ["bin/run", "bin/build", "bin/detect", "buildpack.toml"]
+  pre_package = "./scripts/build.sh"
+  [metadata.default-versions]
+    dependency = "1.14.*"
+
   [[metadata.dependencies]]
-    id = "node"
-    sha256 = "f9de81daeec972c44502537c97edb7bc0b0c1ea8a797e12c188e7f9a17e61d4c"
+    id = "dependency"
+    name = "Needed Dependency"
+    sha256 = "82a1b84f16858db03231eb201f90cce2a991078dda543879b87e738e2586854b"
     stacks = ["io.buildpacks.stacks.bionic"]
-    uri = "https://buildpacks.cloudfoundry.org/dependencies/node/node_14.5.0_linux_x64_cflinuxfs3_f9de81da.tgz"
-    version = "14.5.0"
+    uri = "https://golang.org/dl/go1.14.5.linux-amd64.tar.gz"
+    version = "1.14.5"
 
 [[stacks]]
   id = "io.buildpacks.stacks.bionic"
+
